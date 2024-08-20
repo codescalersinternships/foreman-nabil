@@ -21,7 +21,7 @@ func InitForeman(args ...string) (*Foreman, error) {
 		servicesGraph: map[string][]string{},
 	}
 	if err := foreman.parseProcfile(); err != nil {
-		return nil, nil
+		return nil, err
 	}
 	return &foreman, nil
 }
@@ -58,16 +58,28 @@ func (foreman *Foreman)parseProcfile () error {
 			if cmd, ok := checks["cmd"].(string); ok {
 				newInfo.checks.cmd = cmd
 			}
-			if tcpPorts, ok := checks["tcp_ports"].([]string); ok {
-				newInfo.checks.tcpPorts = append(newInfo.checks.tcpPorts, tcpPorts...)
+			if tcpPorts, ok := checks["tcp_ports"].([]interface{}); ok {
+				for _, ports := range tcpPorts {
+					if port, ok := ports.(string); ok {
+						newInfo.checks.tcpPorts = append(newInfo.checks.tcpPorts, port)
+					}
+				}
 			}
-			if udpPorts, ok := checks["udp_ports"].([]string); ok {
-				newInfo.checks.udpPorts = append(newInfo.checks.udpPorts, udpPorts...)
+			if udpPorts, ok := checks["udp_ports"].([]interface{}); ok {
+				for _, ports := range udpPorts {
+					if port, ok := ports.(string); ok {
+						newInfo.checks.udpPorts = append(newInfo.checks.udpPorts, port)
+					}
+				}
 			}
 		}
 		
-		if deps, ok := info["deps"].([]string); ok {
-			newInfo.deps = append(newInfo.deps, deps...)
+		if deps, ok := info["deps"].([]interface{}); ok {
+			for _, depInterface := range deps {
+				if dep, ok := depInterface.(string); ok {
+					newInfo.deps = append(newInfo.deps, dep)
+				}
+			}
 		}
 		
 
@@ -111,6 +123,13 @@ func (foreman *Foreman) runService(serviceName string) error{
 		}
 		return err
 	}
+	err = serviceCmd.Wait()
+	if err != nil {
+		if !service.info.runOnce {
+			return foreman.runService(serviceName)
+		}
+		return err
+	}
 	service.id = serviceCmd.SysProcAttr.Pgid
 	fmt.Printf("[%s] process started\n", service.name)
 	foreman.services[serviceName] = service
@@ -121,7 +140,7 @@ func dfs(node *string, graph map[string][]string, que *[]string, vis map[string]
 	if vis[*node] {
 		return true
 	}
-	vis[*node] = false
+	vis[*node] = true
 	isCyc := false
 	for _, child := range graph[*node] {
 		isCyc = isCyc || dfs(&child, graph, que, vis)
@@ -152,6 +171,15 @@ func topologicalSort(graph map[string][]string, services map[string]Service) ([]
 		isCyc = isCyc || dfs(&node,graph,&topoGraph[len(topoGraph) - 1],vis)
 		if isCyc {
 			return topoGraph, true
+		}
+	}
+	for service := range graph {
+		if !vis[service] {
+			topoGraph = append(topoGraph, []string{})
+			isCyc = isCyc || dfs(&service,graph,&topoGraph[len(topoGraph) - 1],vis)
+			if isCyc {
+				return topoGraph, true
+			}
 		}
 	}
 	return topoGraph, false

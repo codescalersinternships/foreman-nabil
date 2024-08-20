@@ -1,17 +1,35 @@
-service_ping:
-  cmd: ping -c 10 google.com
-  checks:
-    cmd: ls
-  deps: 
-      - service_redis
+app1:
+    cmd: ping -c 1 google.com
+    run_once: true
+    checks:
+        cmd: sleep 3
+    deps: 
+        - redis6010
+app2:
+    cmd: ping -c 50 yahoo.com
+    run_once: true
+    checks:
+        cmd: sleep 4
+    deps:
+        - redis8080
 
-service_sleep:
-  cmd: sleep 10
-  run_once: true
-  checks:
-    cmd: ls
+app3:
+    run_once: true
+    cmd: sleep 10
+    deps:
+      - app1
+    
+redis6010:
+    cmd: redis-server --port 6010
+    run_once: true
+    checks:
+        cmd: redis-cli -p 6010 ping
+        tcp_ports: [6010]
 
-service_redis:
-  cmd: redis-server --port 5000
-  checks:
-    cmd: redis-cli -p 5000 ping
+redis8080:
+    cmd: redis-server --port 8080
+    run_once: true
+    checks:
+        cmd: redis-cli -p 8080 ping
+        tcp_ports: [8080]
+        udp_ports: [80]

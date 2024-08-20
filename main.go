@@ -1,10 +1,20 @@
 package main
 
-import foreman "github.com/codescalersinternships/foreman-nabil/pkg"
+import (
+	"fmt"
+
+	foreman "github.com/codescalersinternships/foreman-nabil/pkg"
+)
 
 
 func main() {
-	f, _ := foreman.InitForeman()
-	_ = f.RunServices()
-	
+	f, err := foreman.InitForeman()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	err = f.RunServices()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
