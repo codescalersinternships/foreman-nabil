@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestForeman(t *testing.T) {
@@ -42,19 +44,24 @@ db:
 	)
 
 	validProcfilePath := filepath.Join(tempDir, "valid_procfile.yaml")
-	os.WriteFile(validProcfilePath, []byte(valid_procfile), 0644)
+	err := os.WriteFile(validProcfilePath, []byte(valid_procfile), 0644)
+	assert.NoError(t, err)
 
 	cycleProcfilePath := filepath.Join(tempDir, "cycle_procfile.yaml")
-	os.WriteFile(cycleProcfilePath, []byte(cycle_procfile), 0644)
+	err = os.WriteFile(cycleProcfilePath, []byte(cycle_procfile), 0644)
+	assert.NoError(t, err)
 
 	invalidCommandProcfilePath := filepath.Join(tempDir, "invalid_command_procfile.yaml")
-	os.WriteFile(invalidCommandProcfilePath, []byte(invalid_command_procfile), 0644)
+	err = os.WriteFile(invalidCommandProcfilePath, []byte(invalid_command_procfile), 0644)
+	assert.NoError(t, err)
 
 	invalidformedProcfilePath := filepath.Join(tempDir, "malformed_procfile.yaml")
-	os.WriteFile(invalidformedProcfilePath, []byte(invalid_format_procfile), 0644)
+	err = os.WriteFile(invalidformedProcfilePath, []byte(invalid_format_procfile), 0644)
+	assert.NoError(t, err)
 
 	// portConflictProcfilePath := filepath.Join(tempDir, "port_conflict_procfile.yaml")
-	// os.WriteFile(portConflictProcfilePath, []byte(port_conflict_procfile), 0644)
+	// err = os.WriteFile(portConflictProcfilePath, []byte(port_conflict_procfile), 0644)
+	//assert.NoError(t, err)
 
 	
 
@@ -99,7 +106,7 @@ db:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			foreman, err := InitForeman(test.procfile)
-			cnt := 0;
+			var cnt int = 0;
 			if err != nil {
 				cnt++;
 				if !test.expectErr {
