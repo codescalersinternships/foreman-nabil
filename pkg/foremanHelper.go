@@ -40,18 +40,36 @@ func (foreman *Foreman)parseProcfile () error {
 	}
 	for service, info := range yamlMap {
 		newInfo := ServiceInfo{
-			cmd: info["cmd"].(string),
-			runOnce: info["run_once"].(bool),
 			checks: Check{
-				cmd: info["checks"].(map[string]any)["cmd"].(string),
 				tcpPorts: []string{},
 				udpPorts: []string{},
 			},
 			deps: []string{},
 		}
-		newInfo.deps = append(newInfo.deps, info["deps"].([]string)...)
-		newInfo.checks.tcpPorts = append(newInfo.checks.tcpPorts, info["checks"].(map[string]any)["tcp_ports"].([]string)...)
-		newInfo.checks.udpPorts = append(newInfo.checks.udpPorts, info["checks"].(map[string]any)["udp_ports"].([]string)...)
+		if cmd, ok := info["cmd"].(string); ok {
+			newInfo.cmd = cmd
+		}
+		
+		if runOnce, ok := info["run_once"].(bool); ok {
+			newInfo.runOnce = runOnce
+		}
+		
+		if checks, ok := info["checks"].(map[string]interface{}); ok {
+			if cmd, ok := checks["cmd"].(string); ok {
+				newInfo.checks.cmd = cmd
+			}
+			if tcpPorts, ok := checks["tcp_ports"].([]string); ok {
+				newInfo.checks.tcpPorts = append(newInfo.checks.tcpPorts, tcpPorts...)
+			}
+			if udpPorts, ok := checks["udp_ports"].([]string); ok {
+				newInfo.checks.udpPorts = append(newInfo.checks.udpPorts, udpPorts...)
+			}
+		}
+		
+		if deps, ok := info["deps"].([]string); ok {
+			newInfo.deps = append(newInfo.deps, deps...)
+		}
+		
 
 		foreman.services[service] = Service{name: service, info: newInfo}
 	}
