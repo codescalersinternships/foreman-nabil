@@ -106,9 +106,7 @@ db:
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			foreman, err := InitForeman(test.procfile)
-			var cnt int = 0;
 			if err != nil {
-				cnt++;
 				if !test.expectErr {
 					t.Errorf("not expecting error but got: %v",err)
 					return
@@ -119,12 +117,15 @@ db:
 
 			err = foreman.RunServices()
 			if err != nil {
-				cnt++
+				if !test.expectErr {
+					t.Errorf("not expecting error but got: %v",err)
+					return
+				}else {
+					return
+				}
 			}
 			if test.expectErr {
-				if cnt == 0{
-					t.Errorf("expected error but got nil")
-				}
+				t.Errorf("expecting error but got nil")
 			}
 		})
 	}
