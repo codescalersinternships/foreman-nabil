@@ -122,7 +122,7 @@ db:
 				cnt++
 			}
 			if test.expectErr {
-				if cnt <= 0{
+				if cnt == 0{
 					t.Errorf("expected error but got nil")
 				}
 			}
