@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"syscall"
 
 	"gopkg.in/yaml.v2"
@@ -54,12 +55,16 @@ func (foreman *Foreman)parseProcfile () error {
 			newInfo.runOnce = runOnce
 		}
 		
-		if checks, ok := info["checks"].(map[string]interface{}); ok {
+		if checks, ok := info["checks"].(map[interface{}]interface{}); ok {
 			if cmd, ok := checks["cmd"].(string); ok {
 				newInfo.checks.cmd = cmd
 			}
 			if tcpPorts, ok := checks["tcp_ports"].([]interface{}); ok {
 				for _, ports := range tcpPorts {
+					if port, ok := ports.(int); ok {
+						newInfo.checks.tcpPorts = append(newInfo.checks.tcpPorts, strconv.Itoa(port))
+						continue
+					}
 					if port, ok := ports.(string); ok {
 						newInfo.checks.tcpPorts = append(newInfo.checks.tcpPorts, port)
 					}
@@ -67,6 +72,10 @@ func (foreman *Foreman)parseProcfile () error {
 			}
 			if udpPorts, ok := checks["udp_ports"].([]interface{}); ok {
 				for _, ports := range udpPorts {
+					if port, ok := ports.(int); ok {
+						newInfo.checks.udpPorts = append(newInfo.checks.udpPorts, strconv.Itoa(port))
+						continue
+					}
 					if port, ok := ports.(string); ok {
 						newInfo.checks.udpPorts = append(newInfo.checks.udpPorts, port)
 					}
@@ -113,10 +122,11 @@ func (foreman *Foreman) runService(serviceName string) error{
 	service := foreman.services[serviceName]
 	serviceCmd := exec.Command("bash", "-c", service.info.cmd)
 	serviceCmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid: true,
+		Setpgid: true,
 		Pgid: 0,
 	}
 	err := serviceCmd.Start()
+	
 	if err != nil {
 		if !service.info.runOnce {
 			return foreman.runService(serviceName)
@@ -130,8 +140,8 @@ func (foreman *Foreman) runService(serviceName string) error{
 		}
 		return err
 	}
-	service.id = serviceCmd.SysProcAttr.Pgid
-	fmt.Printf("[%s] process started\n", service.name)
+	service.id = serviceCmd.Process.Pid
+	fmt.Printf("[%d] process [%s] started\n", service.id, service.name)
 	foreman.services[serviceName] = service
 	return nil
 }

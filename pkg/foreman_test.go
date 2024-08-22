@@ -12,9 +12,28 @@ func TestForeman(t *testing.T) {
 	// Create necessary files for testing
 	tempDir := t.TempDir()
 	const (
-		valid_procfile = `web:
-  cmd: "echo Starting web server"
-  deps: []`
+		valid_procfile = `app1:
+    cmd: ping -c 1 google.com
+    checks:
+        cmd: sleep 3
+    deps: 
+        - app2
+app2:
+    cmd: ping -c 10 yahoo.com
+    run_once: true
+    checks:
+        cmd: sleep 4
+        tcp_ports: [8080]
+        udp_ports: [80]
+
+app3:
+    run_once: true
+    cmd: sleep 10
+    checks:
+        tcp_ports: ["8090"]
+        udp_ports: ["90"]
+    deps:
+      - app1`
 		cycle_procfile = `web:
   cmd: "echo Starting web server"
   deps: ["db"]
@@ -22,6 +41,19 @@ func TestForeman(t *testing.T) {
 db:
   cmd: "echo Starting database"
   deps: ["web"]`
+		cycle_procfiles2 = `app1:
+    cmd: ping -c 1 google.com
+    run_once: true
+    checks:
+        cmd: sleep 3
+    deps: 
+        - app2
+app2:
+    cmd: ping -c 10 yahoo.com
+    run_once: true
+    deps:
+        - app1
+`
 		invalid_command_procfile = `web:
   cmd: "nonexistentcommand"
   run_once: true`
@@ -30,17 +62,6 @@ db:
   deps: ["db"
 db:
   cmd: "echo Starting database"`
-// 		port_conflict_procfile = `web1:
-//   cmd: "nc -l 8080"
-//   run_once: true
-//   checks:
-//     tcp_ports: ["8080"]
-
-// web2:
-//   cmd: "nc -l 8080"
-//     run_once: true
-//   checks:
-//     tcp_ports: ["8080"]`
 	)
 
 	validProcfilePath := filepath.Join(tempDir, "valid_procfile.yaml")
@@ -57,13 +78,11 @@ db:
 
 	invalidformedProcfilePath := filepath.Join(tempDir, "malformed_procfile.yaml")
 	err = os.WriteFile(invalidformedProcfilePath, []byte(invalid_format_procfile), 0644)
-	assert.NoError(t, err)
+	assert.NoError(t, err)	
 
-	// portConflictProcfilePath := filepath.Join(tempDir, "port_conflict_procfile.yaml")
-	// err = os.WriteFile(portConflictProcfilePath, []byte(port_conflict_procfile), 0644)
-	//assert.NoError(t, err)
-
-	
+	cycleProcfile2Path := filepath.Join(tempDir, "malformed_procfile.yaml")
+	err = os.WriteFile(invalidformedProcfilePath, []byte(cycle_procfiles2), 0644)
+	assert.NoError(t, err)	
 
 	// Define the test cases
 	tests := []struct {
@@ -82,6 +101,11 @@ db:
 			expectErr: true,
 		},
 		{
+			name:      "DependenciesFormCycle another example",
+			procfile:  cycleProcfile2Path,
+			expectErr: true,
+		},
+		{
 			name:      "InvalidCommand",
 			procfile:  invalidCommandProcfilePath,
 			expectErr: true,
@@ -96,11 +120,6 @@ db:
 			procfile:  invalidformedProcfilePath,
 			expectErr: true,
 		},
-		// {
-		// 	name:      "PortConflict",
-		// 	procfile:  portConflictProcfilePath,
-		// 	expectErr: true,
-		// },
 	}
 
 	for _, test := range tests {
