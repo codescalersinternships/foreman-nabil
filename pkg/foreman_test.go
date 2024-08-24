@@ -13,22 +13,22 @@ func TestForeman(t *testing.T) {
 	tempDir := t.TempDir()
 	const (
 		valid_procfile = `app1:
-    cmd: ping -c 1 google.com
+    cmd: ping -c 1 google.com | grep google
     checks:
-        cmd: ping -c 1 google.com
+        cmd: sleep 3
     deps: 
         - app2
 app2:
-    cmd: ping -c 10 yahoo.com
+    cmd: ping -c 10 yahoo.com | grep yahoo
     run_once: true
     checks:
-        cmd: ping -c 1 google.com
+        cmd: sleep 4
         tcp_ports: [8080]
         udp_ports: [80]
 
 app3:
     run_once: true
-    cmd: ping -c 1 google.com
+    cmd: sleep 10
     checks:
         tcp_ports: ["8090"]
         udp_ports: ["90"]
@@ -49,7 +49,7 @@ db:
     deps: 
         - app2
 app2:
-    cmd: ping -c 10 yahoo.com
+    cmd: ping -c 10 yahoo.com | grep yahoo
     run_once: true
     deps:
         - app1
