@@ -15,20 +15,20 @@ func TestForeman(t *testing.T) {
 		valid_procfile = `app1:
     cmd: ping -c 1 google.com
     checks:
-        cmd: sleep 3
+        cmd: ping -c 1 google.com
     deps: 
         - app2
 app2:
     cmd: ping -c 10 yahoo.com
     run_once: true
     checks:
-        cmd: sleep 4
+        cmd: ping -c 1 google.com
         tcp_ports: [8080]
         udp_ports: [80]
 
 app3:
     run_once: true
-    cmd: sleep 10
+    cmd: ping -c 1 google.com
     checks:
         tcp_ports: ["8090"]
         udp_ports: ["90"]
