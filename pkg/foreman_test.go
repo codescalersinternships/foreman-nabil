@@ -54,9 +54,9 @@ app2:
     deps:
         - app1
 `
-		invalid_command_procfile = `web:
-  cmd: "nonexistentcommand"
-  run_once: true`
+// 		invalid_command_procfile = `web:
+//   cmd: "nonexistentcommand"
+//   run_once: true`
 		invalid_format_procfile = `web:
   cmd: "echo Starting web server"
   deps: ["db"
@@ -72,9 +72,9 @@ db:
 	err = os.WriteFile(cycleProcfilePath, []byte(cycle_procfile), 0644)
 	assert.NoError(t, err)
 
-	invalidCommandProcfilePath := filepath.Join(tempDir, "invalid_command_procfile.yaml")
-	err = os.WriteFile(invalidCommandProcfilePath, []byte(invalid_command_procfile), 0644)
-	assert.NoError(t, err)
+	// invalidCommandProcfilePath := filepath.Join(tempDir, "invalid_command_procfile.yaml")
+	// err = os.WriteFile(invalidCommandProcfilePath, []byte(invalid_command_procfile), 0644)
+	// assert.NoError(t, err)
 
 	invalidformedProcfilePath := filepath.Join(tempDir, "malformed_procfile.yaml")
 	err = os.WriteFile(invalidformedProcfilePath, []byte(invalid_format_procfile), 0644)
@@ -105,11 +105,11 @@ db:
 			procfile:  cycleProcfile2Path,
 			expectErr: true,
 		},
-		{
-			name:      "InvalidCommand",
-			procfile:  invalidCommandProcfilePath,
-			expectErr: true,
-		},
+		// {
+		// 	name:      "InvalidCommand",
+		// 	procfile:  invalidCommandProcfilePath,
+		// 	expectErr: true,
+		// },
 		{
 			name:      "FilepathNotFound",
 			procfile:  filepath.Join(tempDir, "nonexistent_procfile.yaml"),

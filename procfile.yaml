@@ -8,5 +8,3 @@ app1:
 app2:
     cmd: ping -c 10 yahoo.com
     run_once: true
-    deps:
-        - app1

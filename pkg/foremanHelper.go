@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"sync"
 	"syscall"
 
 	"gopkg.in/yaml.v2"
@@ -20,10 +21,13 @@ func InitForeman(args ...string) (*Foreman, error) {
 		procfile: procFile,
 		services: map[string]Service{},
 		servicesGraph: map[string][]string{},
+		signalsChannel: make(chan os.Signal, 1e6),
+		servicesToRunChannel: make(chan string, 1e6),
 	}
 	if err := foreman.parseProcfile(); err != nil {
 		return nil, err
 	}
+	foreman.signal()
 	return &foreman, nil
 }
 
@@ -107,41 +111,80 @@ func (foreman *Foreman)RunServices() (error){
 	if isCyc {
 		return fmt.Errorf("dependacies form cycle route from parent %v", topoGraph[len(topoGraph) -1])
 	}
+	var wg sync.WaitGroup
 	for _, nodes := range topoGraph {
-		for _, node := range nodes {//TODO concurrent
-			err := foreman.runService(node)
-			if err != nil {
-				return err
+		var conErr error
+		wg.Add(1)
+		go func(nodes []string){
+			defer wg.Done()
+			for _, node := range nodes {
+				err := foreman.runService(node)
+				if err != nil {
+					conErr = err
+				}
 			}
+		}(nodes)
+		if conErr != nil {
+			return conErr
 		}
 	}
+	wg.Wait()
+
+	foreman.createServiceRunners(foreman.servicesToRunChannel, 5)
 	return nil
+}
+
+func (foreman *Foreman) createServiceRunners(services <-chan string, numWorkers int) {
+	for w := 0; w < numWorkers; w++ {
+		go foreman.serviceRunner(services)
+	}
+}
+
+// serviceRunner is the worker, of which we’ll run several concurrent instances.
+func (foreman *Foreman) serviceRunner(services <-chan string) {
+	for serviceName := range services {
+		foreman.runService(serviceName)
+	}
+}
+
+func (foreman *Foreman) serviceDepsAreAllActive(service Service) (bool, string) {
+	for _, dep := range service.info.deps {
+		if foreman.services[dep].info.status == "inactive" {
+			foreman.restartService(dep)
+			return false, dep
+		} 
+	}
+	return true, ""
 }
 
 func (foreman *Foreman) runService(serviceName string) error{ 
 	service := foreman.services[serviceName]
+	if ok, _ := foreman.serviceDepsAreAllActive(service); !ok {
+		foreman.restartService(serviceName)
+		return nil
+	}
 	serviceCmd := exec.Command("bash", "-c", service.info.cmd)
 	serviceCmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 		Pgid: 0,
 	}
-	err := serviceCmd.Start()
-	
+	startErr := serviceCmd.Start()
+	err := serviceCmd.Wait()
+	if startErr != nil {
+		if !service.info.runOnce {
+			return foreman.runService(serviceName)
+		}
+		return startErr
+	}
 	if err != nil {
 		if !service.info.runOnce {
 			return foreman.runService(serviceName)
 		}
 		return err
 	}
-	err = serviceCmd.Wait()
-	if err != nil {
-		if !service.info.runOnce {
-			return foreman.runService(serviceName)
-		}
-		return err
-	}
-	service.id = serviceCmd.Process.Pid
-	fmt.Printf("[%d] process [%s] started\n", service.id, service.name)
+	service.pid = serviceCmd.Process.Pid
+	service.info.status = "active"
+	fmt.Printf("[%d] process [%s] started\n", service.pid, service.name)
 	foreman.services[serviceName] = service
 	return nil
 }
