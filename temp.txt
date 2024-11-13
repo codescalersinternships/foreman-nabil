@@ -1,0 +1,29 @@
+type Check struct {
+	cmd string
+	tcpPorts []string
+	udpPorts []string
+}
+
+type ServiceInfo struct {
+	cmd string
+	runOnce bool
+	checks Check
+	deps []string
+}
+
+type Service struct {
+	name string
+	pid int
+	status string
+	info ServiceInfo
+}
+
+type Foreman struct {
+	procfile string
+	services map[string]Service
+	servicesGraph map[string][]string
+}   
+-> runservices -need-> topological sort to detect if dep make cycles return array of nodes forming cycles, 
+                            then-> run the service according to right sort and after each service start run its checks
+                                    also take care to check if it ran succes so restart or not
+    ->//
