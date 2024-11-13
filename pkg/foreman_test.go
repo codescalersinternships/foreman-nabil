@@ -54,9 +54,9 @@ app2:
     deps:
         - app1
 `
-// 		invalid_command_procfile = `web:
-//   cmd: "nonexistentcommand"
-//   run_once: true`
+		// 		invalid_command_procfile = `web:
+		//   cmd: "nonexistentcommand"
+		//   run_once: true`
 		invalid_format_procfile = `web:
   cmd: "echo Starting web server"
   deps: ["db"
@@ -78,17 +78,17 @@ db:
 
 	invalidformedProcfilePath := filepath.Join(tempDir, "malformed_procfile.yaml")
 	err = os.WriteFile(invalidformedProcfilePath, []byte(invalid_format_procfile), 0644)
-	assert.NoError(t, err)	
+	assert.NoError(t, err)
 
 	cycleProcfile2Path := filepath.Join(tempDir, "malformed_procfile.yaml")
 	err = os.WriteFile(invalidformedProcfilePath, []byte(cycle_procfiles2), 0644)
-	assert.NoError(t, err)	
+	assert.NoError(t, err)
 
 	// Define the test cases
 	tests := []struct {
-		name       string
-		procfile   string
-		expectErr  bool
+		name      string
+		procfile  string
+		expectErr bool
 	}{
 		{
 			name:      "ValidFile",
@@ -127,9 +127,9 @@ db:
 			foreman, err := InitForeman(test.procfile)
 			if err != nil {
 				if !test.expectErr {
-					t.Errorf("not expecting error but got: %v",err)
+					t.Errorf("not expecting error but got: %v", err)
 					return
-				}else {
+				} else {
 					return
 				}
 			}
@@ -137,9 +137,9 @@ db:
 			err = foreman.RunServices()
 			if err != nil {
 				if !test.expectErr {
-					t.Errorf("not expecting error but got: %v",err)
+					t.Errorf("not expecting error but got: %v", err)
 					return
-				}else {
+				} else {
 					return
 				}
 			}

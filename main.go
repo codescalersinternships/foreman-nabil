@@ -6,7 +6,6 @@ import (
 	foreman "github.com/codescalersinternships/foreman-nabil/pkg"
 )
 
-
 func main() {
 	f, err := foreman.InitForeman()
 	if err != nil {

@@ -11,17 +11,16 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-
 func InitForeman(args ...string) (*Foreman, error) {
 	procFile := "procfile.yaml"
-	if len(args) > 0{
+	if len(args) > 0 {
 		procFile = args[0]
 	}
-	foreman := Foreman {
-		procfile: procFile,
-		services: map[string]Service{},
-		servicesGraph: map[string][]string{},
-		signalsChannel: make(chan os.Signal, 1e6),
+	foreman := Foreman{
+		procfile:             procFile,
+		services:             map[string]Service{},
+		servicesGraph:        map[string][]string{},
+		signalsChannel:       make(chan os.Signal, 1e6),
 		servicesToRunChannel: make(chan string, 1e6),
 	}
 	if err := foreman.parseProcfile(); err != nil {
@@ -31,14 +30,14 @@ func InitForeman(args ...string) (*Foreman, error) {
 	return &foreman, nil
 }
 
-func (foreman *Foreman)parseProcfile () error {
+func (foreman *Foreman) parseProcfile() error {
 	yamlMap := make(map[string]map[string]interface{})
 
-    data, err := os.ReadFile(foreman.procfile)
+	data, err := os.ReadFile(foreman.procfile)
 	if err != nil {
 		return err
 	}
-    err = yaml.Unmarshal([]byte(data), yamlMap)
+	err = yaml.Unmarshal([]byte(data), yamlMap)
 
 	if err != nil {
 		return err
@@ -54,11 +53,11 @@ func (foreman *Foreman)parseProcfile () error {
 		if cmd, ok := info["cmd"].(string); ok {
 			newInfo.cmd = cmd
 		}
-		
+
 		if runOnce, ok := info["run_once"].(bool); ok {
 			newInfo.runOnce = runOnce
 		}
-		
+
 		if checks, ok := info["checks"].(map[interface{}]interface{}); ok {
 			if cmd, ok := checks["cmd"].(string); ok {
 				newInfo.checks.cmd = cmd
@@ -86,7 +85,7 @@ func (foreman *Foreman)parseProcfile () error {
 				}
 			}
 		}
-		
+
 		if deps, ok := info["deps"].([]interface{}); ok {
 			for _, depInterface := range deps {
 				if dep, ok := depInterface.(string); ok {
@@ -94,7 +93,6 @@ func (foreman *Foreman)parseProcfile () error {
 				}
 			}
 		}
-		
 
 		foreman.services[service] = Service{name: service, info: newInfo}
 	}
@@ -106,16 +104,16 @@ func (foreman *Foreman)parseProcfile () error {
 	return nil
 }
 
-func (foreman *Foreman)RunServices() (error){
+func (foreman *Foreman) RunServices() error {
 	topoGraph, isCyc := topologicalSort(foreman.servicesGraph, foreman.services)
 	if isCyc {
-		return fmt.Errorf("dependacies form cycle route from parent %v", topoGraph[len(topoGraph) -1])
+		return fmt.Errorf("dependacies form cycle route from parent %v", topoGraph[len(topoGraph)-1])
 	}
 	var wg sync.WaitGroup
 	for _, nodes := range topoGraph {
 		var conErr error
 		wg.Add(1)
-		go func(nodes []string){
+		go func(nodes []string) {
 			defer wg.Done()
 			for _, node := range nodes {
 				err := foreman.runService(node)
@@ -130,21 +128,31 @@ func (foreman *Foreman)RunServices() (error){
 	}
 	wg.Wait()
 
-	foreman.createServiceRunners(foreman.servicesToRunChannel, 5)
-	return nil
+	err := foreman.createServiceRunners(foreman.servicesToRunChannel, 5)
+	return err
 }
 
-func (foreman *Foreman) createServiceRunners(services <-chan string, numWorkers int) {
+func (foreman *Foreman) createServiceRunners(services <-chan string, numWorkers int) error {
+	var retErr error = nil
 	for w := 0; w < numWorkers; w++ {
-		go foreman.serviceRunner(services)
+		go func() {
+			err := foreman.serviceRunner(services)
+			if err != nil {
+				retErr = err
+			}
+		}() 
 	}
+	return retErr
 }
 
-// serviceRunner is the worker, of which we’ll run several concurrent instances.
-func (foreman *Foreman) serviceRunner(services <-chan string) {
+func (foreman *Foreman) serviceRunner(services <-chan string) error{
 	for serviceName := range services {
-		foreman.runService(serviceName)
+		err := foreman.runService(serviceName)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (foreman *Foreman) serviceDepsAreAllActive(service Service) (bool, string) {
@@ -152,12 +160,12 @@ func (foreman *Foreman) serviceDepsAreAllActive(service Service) (bool, string) 
 		if foreman.services[dep].info.status == "inactive" {
 			foreman.restartService(dep)
 			return false, dep
-		} 
+		}
 	}
 	return true, ""
 }
 
-func (foreman *Foreman) runService(serviceName string) error{ 
+func (foreman *Foreman) runService(serviceName string) error {
 	service := foreman.services[serviceName]
 	if ok, _ := foreman.serviceDepsAreAllActive(service); !ok {
 		foreman.restartService(serviceName)
@@ -166,7 +174,7 @@ func (foreman *Foreman) runService(serviceName string) error{
 	serviceCmd := exec.Command("bash", "-c", service.info.cmd)
 	serviceCmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
-		Pgid: 0,
+		Pgid:    0,
 	}
 	startErr := serviceCmd.Start()
 	err := serviceCmd.Wait()
@@ -189,7 +197,7 @@ func (foreman *Foreman) runService(serviceName string) error{
 	return nil
 }
 
-func dfs(node *string, graph map[string][]string, que *[]string, vis map[string]bool) (bool){
+func dfs(node *string, graph map[string][]string, que *[]string, vis map[string]bool) bool {
 	if vis[*node] {
 		return true
 	}
@@ -202,13 +210,13 @@ func dfs(node *string, graph map[string][]string, que *[]string, vis map[string]
 	return isCyc
 }
 
-func topologicalSort(graph map[string][]string, services map[string]Service) ([][]string,bool) {
+func topologicalSort(graph map[string][]string, services map[string]Service) ([][]string, bool) {
 	vis := make(map[string]bool)
 	in := make(map[string]int)
 
 	for _, deps := range graph {
 		for _, dep := range deps {
-			in[dep]++;
+			in[dep]++
 		}
 	}
 	startingNodes := []string{}
@@ -221,7 +229,7 @@ func topologicalSort(graph map[string][]string, services map[string]Service) ([]
 	isCyc := false
 	for _, node := range startingNodes {
 		topoGraph = append(topoGraph, []string{})
-		isCyc = isCyc || dfs(&node,graph,&topoGraph[len(topoGraph) - 1],vis)
+		isCyc = isCyc || dfs(&node, graph, &topoGraph[len(topoGraph)-1], vis)
 		if isCyc {
 			return topoGraph, true
 		}
@@ -229,7 +237,7 @@ func topologicalSort(graph map[string][]string, services map[string]Service) ([]
 	for service := range graph {
 		if !vis[service] {
 			topoGraph = append(topoGraph, []string{})
-			isCyc = isCyc || dfs(&service,graph,&topoGraph[len(topoGraph) - 1],vis)
+			isCyc = isCyc || dfs(&service, graph, &topoGraph[len(topoGraph)-1], vis)
 			if isCyc {
 				return topoGraph, true
 			}
